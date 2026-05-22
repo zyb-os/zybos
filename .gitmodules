@@ -1,0 +1,81 @@
+[submodule "agent-orchestrator"]
+	path = agent-orchestrator
+	url = https://github.com/zyb-os/agent-orchestrator.git
+[submodule "avatar-agent"]
+	path = avatar-agent
+	url = https://github.com/zyb-os/avatar-agent.git
+[submodule "avatar-ui"]
+	path = avatar-ui
+	url = https://github.com/zyb-os/avatar-ui.git
+[submodule "browser-agent"]
+	path = browser-agent
+	url = https://github.com/zyb-os/browser-agent.git
+[submodule "chrome-extension"]
+	path = chrome-extension
+	url = https://github.com/zyb-os/chrome-extension.git
+[submodule "chrome-mcp-agent"]
+	path = chrome-mcp-agent
+	url = https://github.com/zyb-os/chrome-mcp-agent.git
+[submodule "code-execution-agent"]
+	path = code-execution-agent
+	url = https://github.com/zyb-os/code-execution-agent.git
+[submodule "desktop-agent"]
+	path = desktop-agent
+	url = https://github.com/zyb-os/desktop-agent.git
+[submodule "document-agent"]
+	path = document-agent
+	url = https://github.com/zyb-os/document-agent.git
+[submodule "filesystem-agent"]
+	path = filesystem-agent
+	url = https://github.com/zyb-os/filesystem-agent.git
+[submodule "gmail-agent"]
+	path = gmail-agent
+	url = https://github.com/zyb-os/gmail-agent.git
+[submodule "google-docs-agent"]
+	path = google-docs-agent
+	url = https://github.com/zyb-os/google-docs-agent.git
+[submodule "interactive-test-agent"]
+	path = interactive-test-agent
+	url = https://github.com/zyb-os/interactive-test-agent.git
+[submodule "research-agent"]
+	path = research-agent
+	url = https://github.com/zyb-os/research-agent.git
+[submodule "self-heal-agent"]
+	path = self-heal-agent
+	url = https://github.com/zyb-os/self-heal-agent.git
+[submodule "serper-search-agent"]
+	path = serper-search-agent
+	url = https://github.com/zyb-os/serper-search-agent.git
+[submodule "skill-loader-agent"]
+	path = skill-loader-agent
+	url = https://github.com/zyb-os/skill-loader-agent.git
+[submodule "skill-writer-agent"]
+	path = skill-writer-agent
+	url = https://github.com/zyb-os/skill-writer-agent.git
+[submodule "slack-connector-agent"]
+	path = slack-connector-agent
+	url = https://github.com/zyb-os/slack-connector-agent.git
+[submodule "summarize-agent"]
+	path = summarize-agent
+	url = https://github.com/zyb-os/summarize-agent.git
+[submodule "task-executor-agent"]
+	path = task-executor-agent
+	url = https://github.com/zyb-os/task-executor-agent.git
+[submodule "task-planner-agent"]
+	path = task-planner-agent
+	url = https://github.com/zyb-os/task-planner-agent.git
+[submodule "task-scheduler-agent"]
+	path = task-scheduler-agent
+	url = https://github.com/zyb-os/task-scheduler-agent.git
+[submodule "telegram-agent"]
+	path = telegram-agent
+	url = https://github.com/zyb-os/telegram-agent.git
+[submodule "trading-agent"]
+	path = trading-agent
+	url = https://github.com/zyb-os/trading-agent.git
+[submodule "whatsapp-connector-agent"]
+	path = whatsapp-connector-agent
+	url = https://github.com/zyb-os/whatsapp-connector-agent.git
+[submodule "workflow-validator-agent"]
+	path = workflow-validator-agent
+	url = https://github.com/zyb-os/workflow-validator-agent.git
