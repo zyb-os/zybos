@@ -164,15 +164,15 @@ ok "System dependencies satisfied"
 
 # ── 3. Obtain source ──────────────────────────────────────────────────────────
 # Priority:
-#   a) Running from inside the cloned repo   → use it in-place
-#   b) git available                         → git clone into a temp dir
-#   c) curl/wget available                   → download tarball and extract
+#   a) Running from inside a local clone          → use it in-place (dev workflow)
+#   b) GitHub Release bundle (curl/wget)          → single tarball, no git needed
+#   c) git clone --recurse-submodules             → developer fallback
 #
 info "Obtaining source code…"
 
 REPO_ROOT=""
 
-# (a) Check if we're already inside the repo
+# (a) Check if we're already inside a local clone
 _try_local() {
   local script_path="${BASH_SOURCE[0]:-$0}"
   # BASH_SOURCE[0] is empty when piped through bash - skip
@@ -186,28 +186,33 @@ _try_local() {
   return 1
 }
 
-_download_with_git() {
-  local dest="${INSTALL_DIR}/.repo"
-  rm -rf "${dest}"
-  git clone --depth=1 --recurse-submodules --branch "${GITHUB_BRANCH}" \
-    "https://github.com/${GITHUB_REPO}.git" "${dest}" 2>&1 | grep -v "^$" || return 1
-  REPO_ROOT="${dest}"
-}
-
-_download_with_curl() {
-  local tarball_url="https://github.com/${GITHUB_REPO}/archive/refs/heads/${GITHUB_BRANCH}.tar.gz"
-  local tmp_tar="${INSTALL_DIR}/.source.tar.gz"
+# (b) Download the pre-built release bundle from GitHub Releases
+#     This is a single tarball with all agent source already expanded —
+#     no git required, no access to individual repos needed.
+_download_release() {
+  local release_url="https://github.com/${GITHUB_REPO}/releases/latest/download/zybos-latest.tar.gz"
+  local tmp_tar="${INSTALL_DIR}/.release.tar.gz"
   local tmp_dir="${INSTALL_DIR}/.repo-extract"
 
-  mkdir -p "${INSTALL_DIR}"
   rm -rf "${tmp_dir}"
+  mkdir -p "${INSTALL_DIR}"
 
-  info "  Downloading source tarball from GitHub…"
+  info "  Downloading release bundle…"
+  local downloaded=0
   if command -v curl &>/dev/null; then
-    curl -fsSL --progress-bar "${tarball_url}" -o "${tmp_tar}"
+    curl -fsSL --progress-bar "${release_url}" -o "${tmp_tar}" 2>/dev/null && downloaded=1
   elif command -v wget &>/dev/null; then
-    wget -q --show-progress "${tarball_url}" -O "${tmp_tar}"
-  else
+    wget -q --show-progress "${release_url}" -O "${tmp_tar}" 2>/dev/null && downloaded=1
+  fi
+
+  # Verify we got a real file (not a 404 HTML page)
+  if [[ "${downloaded}" != "1" || ! -s "${tmp_tar}" ]]; then
+    rm -f "${tmp_tar}"
+    return 1
+  fi
+  if ! tar -tzf "${tmp_tar}" &>/dev/null; then
+    warn "Release bundle download failed or is corrupt — falling back to git clone."
+    rm -f "${tmp_tar}"
     return 1
   fi
 
@@ -217,21 +222,27 @@ _download_with_curl() {
   REPO_ROOT="${tmp_dir}"
 }
 
+# (c) Developer fallback: full git clone with submodules
+_download_with_git() {
+  local dest="${INSTALL_DIR}/.repo"
+  rm -rf "${dest}"
+  git clone --depth=1 --recurse-submodules --branch "${GITHUB_BRANCH}" \
+    "https://github.com/${GITHUB_REPO}.git" "${dest}" 2>&1 | grep -v "^$" || return 1
+  REPO_ROOT="${dest}"
+}
+
 if _try_local 2>/dev/null; then
   ok "Using local repository at ${REPO_ROOT}"
+elif _download_release; then
+  ok "Release bundle downloaded (no git required)"
 elif command -v git &>/dev/null; then
-  info "Cloning ${GITHUB_REPO} (${GITHUB_BRANCH})…"
+  info "No release bundle found — cloning ${GITHUB_REPO} with submodules…"
   mkdir -p "${INSTALL_DIR}"
-  if _download_with_git; then
-    ok "Repository cloned to ${INSTALL_DIR}/.repo"
-  else
-    warn "git clone failed, falling back to tarball download…"
-    _download_with_curl || die "Could not download source. Install git or curl/wget and retry."
-    ok "Source downloaded (tarball)"
-  fi
+  _download_with_git \
+    || die "git clone failed. Check your network connection and try again."
+  ok "Repository cloned to ${INSTALL_DIR}/.repo"
 else
-  _download_with_curl || die "Could not download source. Install git or curl/wget and retry."
-  ok "Source downloaded (tarball)"
+  die "Cannot install: no release bundle available and git is not installed."
 fi
 
 [[ -f "${REPO_ROOT}/agent-orchestrator/agent-orchestrator/main.py" ]] || \

@@ -1,0 +1,71 @@
+name: Release
+
+# Trigger on version tags: git tag v1.0.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create GitHub Releases
+
+    steps:
+      - name: Checkout with all submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # pulls all 27 agent repos
+          fetch-depth: 1
+
+      - name: Build release bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          STAGING="zybos-${VERSION}"
+
+          echo "Building bundle for ${VERSION}…"
+
+          # Copy everything except git internals and runtime artefacts
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.gitmodules' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            --exclude='*.pyo' \
+            --exclude='.env' \
+            --exclude='*.env' \
+            --exclude='data/' \
+            --exclude='*.db' \
+            --exclude='*.log' \
+            --exclude='.venv/' \
+            --exclude='venv/' \
+            --exclude='env/' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            --exclude='.DS_Store' \
+            . "${STAGING}/"
+
+          # Versioned bundle + a stable "latest" alias
+          tar -czf "zybos-${VERSION}.tar.gz" "${STAGING}"
+          cp "zybos-${VERSION}.tar.gz" "zybos-latest.tar.gz"
+
+          # Sanity-check: orchestrator main.py must be present
+          tar -tzf "zybos-${VERSION}.tar.gz" | grep -q "agent-orchestrator/agent-orchestrator/main.py" \
+            || { echo "ERROR: agent-orchestrator/main.py missing from bundle"; exit 1; }
+
+          echo "Bundle sizes:"
+          ls -lh zybos-*.tar.gz
+
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ZybOS ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            zybos-${{ env.VERSION }}.tar.gz
+            zybos-latest.tar.gz

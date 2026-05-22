@@ -126,7 +126,10 @@ if ([int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [int]$parts[1] -lt 10)) 
 Write-Ok "Python $verStr at $Python"
 
 # ── 2. Obtain source ──────────────────────────────────────────────────────────
-# Priority: (a) local repo clone  (b) git clone  (c) tarball download
+# Priority:
+#   (a) local repo clone               → use in-place (dev workflow)
+#   (b) GitHub Release bundle          → single download, no git needed
+#   (c) git clone --recurse-submodules → developer fallback
 Write-Info "Obtaining source code..."
 $RepoRoot = ""
 
@@ -140,15 +143,53 @@ try {
     }
 } catch {}
 
+# (b) GitHub Release bundle — pre-built tarball, no git required
 if ($RepoRoot -eq "") {
+    $releaseUrl = "https://github.com/$GitHubRepo/releases/latest/download/zybos-latest.tar.gz"
+    $tmpTar     = Join-Path $InstallDir ".release.tar.gz"
+    $extractDir = Join-Path $InstallDir ".repo-extract"
+
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+
+    Write-Info "Downloading release bundle..."
+    try {
+        Invoke-WebRequest -Uri $releaseUrl -OutFile $tmpTar -UseBasicParsing -ErrorAction Stop
+
+        # Verify it's a real gzip file, not an HTML 404 page
+        $bytes = [System.IO.File]::ReadAllBytes($tmpTar)
+        if ($bytes.Length -gt 2 -and $bytes[0] -eq 0x1f -and $bytes[1] -eq 0x8b) {
+            # Extract using tar (available on Windows 10+) or 7-zip
+            $tarExe = (Get-Command tar -ErrorAction SilentlyContinue)?.Source
+            if ($tarExe) {
+                New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+                & $tarExe -xzf $tmpTar -C $extractDir --strip-components=1 2>&1 | Out-Null
+            } else {
+                # Fallback: rename to .tar.gz and use Expand-Archive (requires 7-zip or similar)
+                Write-Warn "tar not found — install tar or Git for Windows for best results."
+            }
+            if (Test-Path (Join-Path $extractDir "agent-orchestrator\agent-orchestrator\main.py")) {
+                $RepoRoot = $extractDir
+                Write-Ok "Release bundle downloaded (no git required)"
+            }
+        } else {
+            Write-Warn "Release bundle not available yet — falling back to git clone."
+        }
+        Remove-Item $tmpTar -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Warn "Could not download release bundle ($_) — trying git clone..."
+    }
+}
+
+# (c) Developer fallback: git clone with submodules
+if ($RepoRoot -eq "") {
     $tmpRepo = Join-Path $InstallDir ".repo-download"
     Remove-Item $tmpRepo -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
-    # (b) Try git clone
     $gitExe = (Get-Command git -ErrorAction SilentlyContinue)?.Source
     if ($gitExe) {
-        Write-Info "Cloning $GitHubRepo ($Branch) via git..."
+        Write-Info "Cloning $GitHubRepo with submodules via git..."
         try {
             & $gitExe clone --depth 1 --recurse-submodules --branch $Branch `
                 "https://github.com/$GitHubRepo.git" $tmpRepo 2>&1 | Out-Null
@@ -156,34 +197,12 @@ if ($RepoRoot -eq "") {
                 $RepoRoot = $tmpRepo
                 Write-Ok "Repository cloned"
             }
-        } catch { Write-Warn "git clone failed, falling back to tarball..." }
-    }
-
-    # (c) Tarball via Invoke-WebRequest
-    if ($RepoRoot -eq "") {
-        $tarUrl  = "https://github.com/$GitHubRepo/archive/refs/heads/$Branch.zip"
-        $tmpZip  = Join-Path $InstallDir ".source.zip"
-        Write-Info "Downloading source from GitHub ($tarUrl)..."
-        try {
-            Invoke-WebRequest -Uri $tarUrl -OutFile $tmpZip -UseBasicParsing
-            $extractDir = Join-Path $InstallDir ".repo-extract"
-            Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
-            Expand-Archive -Path $tmpZip -DestinationPath $extractDir -Force
-            # GitHub zip contains a single top-level directory like "repo-main/"
-            $inner = Get-ChildItem $extractDir -Directory | Select-Object -First 1
-            if ($inner -and (Test-Path (Join-Path $inner.FullName "agent-orchestrator\agent-orchestrator\main.py"))) {
-                $RepoRoot = $inner.FullName
-                Write-Ok "Source downloaded and extracted"
-            }
-            Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
-        } catch {
-            Write-Fail "Could not download source: $_. Install git or check your internet connection."
-        }
+        } catch { Write-Warn "git clone failed." }
     }
 }
 
 if ($RepoRoot -eq "" -or -not (Test-Path (Join-Path $RepoRoot "agent-orchestrator\agent-orchestrator\main.py"))) {
-    Write-Fail "agent-orchestrator source not found. Check --GitHubRepo / --Branch."
+    Write-Fail "Could not obtain source. No release bundle available and git clone failed. Install git and retry."
 }
 Write-Ok "Source root: $RepoRoot"
 
