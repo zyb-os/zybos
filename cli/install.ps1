@@ -134,7 +134,7 @@ $RepoRoot = ""
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $candidate = (Resolve-Path (Join-Path $ScriptDir "..")).Path
-    if (Test-Path (Join-Path $candidate "agent-orchestrator\main.py")) {
+    if (Test-Path (Join-Path $candidate "agent-orchestrator\agent-orchestrator\main.py")) {
         $RepoRoot = $candidate
         Write-Ok "Using local repository at $RepoRoot"
     }
@@ -150,9 +150,9 @@ if ($RepoRoot -eq "") {
     if ($gitExe) {
         Write-Info "Cloning $GitHubRepo ($Branch) via git..."
         try {
-            & $gitExe clone --depth 1 --branch $Branch `
+            & $gitExe clone --depth 1 --recurse-submodules --branch $Branch `
                 "https://github.com/$GitHubRepo.git" $tmpRepo 2>&1 | Out-Null
-            if (Test-Path (Join-Path $tmpRepo "agent-orchestrator\main.py")) {
+            if (Test-Path (Join-Path $tmpRepo "agent-orchestrator\agent-orchestrator\main.py")) {
                 $RepoRoot = $tmpRepo
                 Write-Ok "Repository cloned"
             }
@@ -171,7 +171,7 @@ if ($RepoRoot -eq "") {
             Expand-Archive -Path $tmpZip -DestinationPath $extractDir -Force
             # GitHub zip contains a single top-level directory like "repo-main/"
             $inner = Get-ChildItem $extractDir -Directory | Select-Object -First 1
-            if ($inner -and (Test-Path (Join-Path $inner.FullName "agent-orchestrator\main.py"))) {
+            if ($inner -and (Test-Path (Join-Path $inner.FullName "agent-orchestrator\agent-orchestrator\main.py"))) {
                 $RepoRoot = $inner.FullName
                 Write-Ok "Source downloaded and extracted"
             }
@@ -182,7 +182,7 @@ if ($RepoRoot -eq "") {
     }
 }
 
-if ($RepoRoot -eq "" -or -not (Test-Path (Join-Path $RepoRoot "agent-orchestrator\main.py"))) {
+if ($RepoRoot -eq "" -or -not (Test-Path (Join-Path $RepoRoot "agent-orchestrator\agent-orchestrator\main.py"))) {
     Write-Fail "agent-orchestrator source not found. Check --GitHubRepo / --Branch."
 }
 Write-Ok "Source root: $RepoRoot"
@@ -220,7 +220,12 @@ foreach ($dir in @($SrcDir, $VenvDir, $LogDir, $RunDir, $BinDir)) {
 Write-Info "Copying source files..."
 $ExcludeDirs = @(".venv", "venv", "env", "__pycache__", ".git", "node_modules", "dist", "build", "data")
 foreach ($agent in $AgentList) {
-    $src  = Join-Path $RepoRoot $agent
+    # The orchestrator repo nests its Python code one level deeper
+    $src  = if ($agent -eq "agent-orchestrator") {
+                Join-Path $RepoRoot "agent-orchestrator\agent-orchestrator"
+            } else {
+                Join-Path $RepoRoot $agent
+            }
     $dest = Join-Path $SrcDir $agent
     if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
     Copy-Item $src $dest -Recurse -Force

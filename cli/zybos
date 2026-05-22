@@ -267,7 +267,7 @@ cmd_update() {
 
   if command -v git &>/dev/null; then
     info "Fetching latest from GitHub (git clone)…"
-    git clone --depth=1 --branch "${branch}" \
+    git clone --depth=1 --recurse-submodules --branch "${branch}" \
       "https://github.com/${repo}.git" "${tmp_repo}" 2>&1 \
       | grep -v "^$" || die "git clone failed. Check network and repo URL."
   elif command -v curl &>/dev/null || command -v wget &>/dev/null; then
@@ -286,13 +286,19 @@ cmd_update() {
     die "Cannot update: install git, curl, or wget."
   fi
 
-  [[ -f "${tmp_repo}/agent-orchestrator/main.py" ]] || \
+  [[ -f "${tmp_repo}/agent-orchestrator/agent-orchestrator/main.py" ]] || \
     die "Downloaded source is incomplete. Check --repo / --branch."
 
   # ── Sync agent source files ───────────────────────────────────────────────
   info "Syncing agent source files…"
   while IFS= read -r agent; do
-    local src="${tmp_repo}/${agent}"
+    # Orchestrator code lives one level deeper in its own repo
+    local src
+    if [[ "${agent}" == "agent-orchestrator" ]]; then
+      src="${tmp_repo}/agent-orchestrator/agent-orchestrator"
+    else
+      src="${tmp_repo}/${agent}"
+    fi
     [[ -d "${src}" ]] || continue
     printf "  %-40s" "${agent}…"
     if command -v rsync &>/dev/null; then

@@ -179,7 +179,7 @@ _try_local() {
   [[ -z "${script_path}" || "${script_path}" == "bash" ]] && return 1
   local candidate
   candidate="$(cd "$(dirname "${script_path}")" 2>/dev/null && cd .. && pwd)"
-  if [[ -f "${candidate}/agent-orchestrator/main.py" ]]; then
+  if [[ -f "${candidate}/agent-orchestrator/agent-orchestrator/main.py" ]]; then
     REPO_ROOT="${candidate}"
     return 0
   fi
@@ -189,7 +189,7 @@ _try_local() {
 _download_with_git() {
   local dest="${INSTALL_DIR}/.repo"
   rm -rf "${dest}"
-  git clone --depth=1 --branch "${GITHUB_BRANCH}" \
+  git clone --depth=1 --recurse-submodules --branch "${GITHUB_BRANCH}" \
     "https://github.com/${GITHUB_REPO}.git" "${dest}" 2>&1 | grep -v "^$" || return 1
   REPO_ROOT="${dest}"
 }
@@ -234,8 +234,8 @@ else
   ok "Source downloaded (tarball)"
 fi
 
-[[ -f "${REPO_ROOT}/agent-orchestrator/main.py" ]] || \
-  die "Source download succeeded but agent-orchestrator/main.py not found. Check --repo / --branch."
+[[ -f "${REPO_ROOT}/agent-orchestrator/agent-orchestrator/main.py" ]] || \
+  die "Source download succeeded but agent-orchestrator/agent-orchestrator/main.py not found. Check --repo / --branch."
 
 # ── 4. Download CLI scripts if running via curl pipe ─────────────────────────
 # When piped through bash, BASH_SOURCE[0] is empty, so we get the CLI tools
@@ -274,7 +274,13 @@ info "Installing source files…"
 
 _sync_agent() {
   local agent="$1"
-  local src="${REPO_ROOT}/${agent}"
+  # The orchestrator repo nests its Python code one level deeper (agent-orchestrator/agent-orchestrator/)
+  local src
+  if [[ "${agent}" == "agent-orchestrator" ]]; then
+    src="${REPO_ROOT}/agent-orchestrator/agent-orchestrator"
+  else
+    src="${REPO_ROOT}/${agent}"
+  fi
   local dest="${SRC_DIR}/${agent}"
   if command -v rsync &>/dev/null; then
     rsync --archive --delete \
