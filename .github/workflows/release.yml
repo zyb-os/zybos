@@ -18,6 +18,12 @@ jobs:
         with:
           submodules: recursive   # pulls all 27 agent repos
           fetch-depth: 1
+          # GH_PAT must be a classic PAT (or fine-grained PAT with Contents: read
+          # on all zyb-os repos) stored as a repository secret.  It is required to
+          # clone private submodules; the default GITHUB_TOKEN only covers the
+          # current repo.  If the secret is absent the checkout falls back to
+          # GITHUB_TOKEN (public submodules only).
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Build release bundle
         run: |
