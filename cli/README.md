@@ -1,4 +1,4 @@
-# ZybOS ZybOS — CLI Installer
+# ZybOS — CLI Installer
 
 Install and manage the ZybOS multi-agent platform on macOS, Linux, or Windows with a single command.
 
@@ -9,13 +9,13 @@ Install and manage the ZybOS multi-agent platform on macOS, Linux, or Windows wi
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ZybOS/agent-orchestrator/main/cli/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zyb-os/zybos/main/cli/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/ZybOS/agent-orchestrator/main/cli/install.ps1 | iex
+irm https://raw.githubusercontent.com/zyb-os/zybos/main/cli/install.ps1 | iex
 ```
 
 That's it. The installer will:
@@ -48,7 +48,7 @@ Open the dashboard at **http://localhost:8000** once agents are running.
 | Flag | Default | Description |
 |---|---|---|
 | `--dir PATH` | `~/.zybos` | Installation directory |
-| `--repo URL` | `ZybOS/agent-orchestrator` | GitHub repo to clone |
+| `--repo URL` | `zyb-os/zybos` | GitHub repo to clone |
 | `--branch NAME` | `main` | Branch or tag |
 | `--agents "a b"` | core set | Space-separated subset of agents |
 | `--all-agents` | — | Install every available agent |

@@ -2,14 +2,14 @@
 # install.sh — ZybOS CLI installer for macOS, Ubuntu, Raspberry Pi.
 #
 # One-line install (downloads everything automatically):
-#   curl -fsSL https://raw.githubusercontent.com/ZybOS/agent-orchestrator/main/cli/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/zyb-os/zybos/main/cli/install.sh | bash
 #
 # Or from a local clone:
 #   bash cli/install.sh
 #
 # Options:
 #   --dir PATH        Installation directory (default: ~/.zybos)
-#   --repo URL        GitHub repo to clone/download (default: ZybOS/agent-orchestrator)
+#   --repo URL        GitHub repo to clone/download (default: zyb-os/zybos)
 #   --branch NAME     Branch or tag to download (default: main)
 #   --no-service      Skip systemd/launchd service registration
 #   --agents LIST     Space-separated subset of agents to install (default: core set)
@@ -29,7 +29,7 @@ die()   { printf "${RED}✗${RESET}  %s\n" "$*" >&2; exit 1; }
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 INSTALL_DIR="${HOME}/.zybos"
-GITHUB_REPO="${GITHUB_REPO:-ZybOS/agent-orchestrator}"
+GITHUB_REPO="${GITHUB_REPO:-zyb-os/zybos}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 INSTALL_SERVICE=1
 UNINSTALL=0

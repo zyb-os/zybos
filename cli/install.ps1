@@ -2,7 +2,7 @@
 # install.ps1 — ZybOS CLI installer for Windows.
 #
 # One-line install (downloads everything from GitHub):
-#   irm https://raw.githubusercontent.com/ZybOS/agent-orchestrator/main/cli/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/zyb-os/zybos/main/cli/install.ps1 | iex
 #
 # Or from a local clone:
 #   powershell -ExecutionPolicy Bypass -File cli\install.ps1
@@ -20,7 +20,7 @@
 [CmdletBinding()]
 param(
     [string]$InstallDir  = "$env:LOCALAPPDATA\ZybOS",
-    [string]$GitHubRepo  = "ZybOS/agent-orchestrator",
+    [string]$GitHubRepo  = "zyb-os/zybos",
     [string]$Branch      = "main",
     [switch]$NoService,
     [string]$Agents      = "",

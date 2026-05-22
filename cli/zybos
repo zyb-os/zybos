@@ -258,7 +258,7 @@ cmd_logs() {
 cmd_update() {
   info "Updating ZybOS…"
 
-  local repo="${GITHUB_REPO:-ZybOS/agent-orchestrator}"
+  local repo="${GITHUB_REPO:-zyb-os/zybos}"
   local branch="${GITHUB_BRANCH:-main}"
 
   # ── Download latest source ────────────────────────────────────────────────
