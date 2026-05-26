@@ -79,3 +79,6 @@
 [submodule "workflow-validator-agent"]
 	path = workflow-validator-agent
 	url = https://github.com/zyb-os/workflow-validator-agent.git
+[submodule "skills-agents-registry"]
+	path = skills-agents-registry
+	url = https://github.com/zyb-os/skills-agents-registry.git
