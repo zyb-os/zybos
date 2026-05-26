@@ -9,7 +9,7 @@
 #
 # Options:
 #   -InstallDir PATH    Installation directory (default: %LOCALAPPDATA%\ZybOS)
-#   -GitHubRepo REPO    GitHub org/repo (default: biome-os/agent-orchestrator)
+#   -GitHubRepo REPO    GitHub org/repo (default: zyb-os/zybos)
 #   -Branch NAME        Branch or tag to download (default: main)
 #   -NoService          Skip Windows Task Scheduler service registration
 #   -Agents "a b"       Space-separated subset of agents to install
