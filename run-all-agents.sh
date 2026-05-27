@@ -244,7 +244,8 @@ start_agent "workflow-validator-agent"          "workflow-validator-agent"      
 #start_agent "chrome-mcp-agent"          "chrome-mcp-agent"          "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 start_agent "skill-loader-agent"          "skill-loader-agent"          "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 start_agent "skill-writer-agent"          "skill-writer-agent"          "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
-start_agent "telegram-agent"          "telegram-agent"          "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
+start_agent "skill-forge-agent"           "skill-forge-agent"           "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
+start_agent "telegram-agent"              "telegram-agent"              "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 
 printf '\n\033[1mAll agents started. Press Ctrl+C to stop.\033[0m\n\n'
 
