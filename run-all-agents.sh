@@ -247,6 +247,7 @@ start_agent "skill-writer-agent"          "skill-writer-agent"          "${PYTHO
 start_agent "skill-forge-agent"           "skill-forge-agent"           "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 start_agent "telegram-agent"              "telegram-agent"              "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 start_agent "youtube-agent"               "youtube-agent"               "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
+start_agent "heygen-agent"                "heygen-agent"                "${PYTHON_BIN}" main.py --orchestrator-url "${ORCHESTRATOR_URL}"
 
 printf '\n\033[1mAll agents started. Press Ctrl+C to stop.\033[0m\n\n'
 
