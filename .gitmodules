@@ -85,3 +85,6 @@
 [submodule "youtube-agent"]
 	path = youtube-agent
 	url = https://github.com/zyb-os/youtube-agent.git
+[submodule "heygen-agent"]
+	path = heygen-agent
+	url = https://github.com/zyb-os/heygen-agent.git
