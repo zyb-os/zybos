@@ -82,3 +82,6 @@
 [submodule "skill-forge-agent"]
 	path = skill-forge-agent
 	url = https://github.com/zyb-os/skill-forge-agent.git
+[submodule "youtube-agent"]
+	path = youtube-agent
+	url = https://github.com/zyb-os/youtube-agent.git
