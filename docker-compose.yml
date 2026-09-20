@@ -1,0 +1,337 @@
+version: "3.9"
+
+# ============================================================
+# docker-compose.yml — multi-container agent stack
+#
+# Each agent runs in its own container.
+# All containers share the "agents" network; agents reach the
+# orchestrator at http://agent-orchestrator:8000.
+#
+# Quick start (from this directory):
+#   docker compose up --build
+#
+# Start only specific agents:
+#   docker compose up agent-orchestrator task-planner-agent browser-agent
+#
+# Rebuild a single agent:
+#   docker compose up --build browser-agent
+#
+# Logs:
+#   docker compose logs -f <service-name>
+# ============================================================
+
+x-agent-defaults: &agent-defaults
+  restart: unless-stopped
+  networks:
+    - agents
+  environment:
+    ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+    LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+  depends_on:
+    agent-orchestrator:
+      condition: service_healthy
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+
+  # ── Orchestrator hub ───────────────────────────────────────────────────────
+
+  agent-orchestrator:
+    build:
+      context: ./agent-orchestrator
+      dockerfile: Dockerfile.standalone
+    image: zyb-agent-orchestrator:latest
+    container_name: agent-orchestrator
+    restart: unless-stopped
+    networks:
+      - agents
+    ports:
+      - "8000:8000"   # Dashboard + API
+      - "8080:8080"   # Webhook receiver (Telegram / WhatsApp)
+    environment:
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      ORCHESTRATOR_LOG_LEVEL: "${LOG_LEVEL_LOWER:-info}"
+      LOG_DIR: /app/logs
+    volumes:
+      - ./logs/agent-orchestrator:/app/logs
+      - agent_orchestrator_data:/app/data
+      # Google Docs OAuth (uncomment after running setup_oauth.py):
+      # - ./google-docs-agent/credentials.json:/app/credentials.json:ro
+      # - ./google-docs-agent/token.json:/app/token.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ── Core planning / execution agents ──────────────────────────────────────
+
+  task-planner-agent:
+    <<: *agent-defaults
+    build:
+      context: ./task-planner-agent
+    image: zyb-task-planner-agent:latest
+    container_name: task-planner-agent
+    volumes:
+      - ./logs/task-planner-agent:/app/logs
+
+  task-executor-agent:
+    <<: *agent-defaults
+    build:
+      context: ./task-executor-agent
+    image: zyb-task-executor-agent:latest
+    container_name: task-executor-agent
+    volumes:
+      - ./logs/task-executor-agent:/app/logs
+
+  task-scheduler-agent:
+    <<: *agent-defaults
+    build:
+      context: ./task-scheduler-agent
+    image: zyb-task-scheduler-agent:latest
+    container_name: task-scheduler-agent
+    volumes:
+      - ./logs/task-scheduler-agent:/app/logs
+
+  self-heal-agent:
+    <<: *agent-defaults
+    build:
+      context: ./self-heal-agent
+    image: zyb-self-heal-agent:latest
+    container_name: self-heal-agent
+    volumes:
+      - ./logs/self-heal-agent:/app/logs
+
+  workflow-validator-agent:
+    <<: *agent-defaults
+    build:
+      context: ./workflow-validator-agent
+    image: zyb-workflow-validator-agent:latest
+    container_name: workflow-validator-agent
+    volumes:
+      - ./logs/workflow-validator-agent:/app/logs
+
+  # ── Browser / web agents ──────────────────────────────────────────────────
+
+  browser-agent:
+    <<: *agent-defaults
+    build:
+      context: ./browser-agent
+    image: zyb-browser-agent:latest
+    container_name: browser-agent
+    shm_size: "256mb"
+    volumes:
+      - ./logs/browser-agent:/app/logs
+
+  chrome-mcp-agent:
+    <<: *agent-defaults
+    build:
+      context: ./chrome-mcp-agent
+    image: zyb-chrome-mcp-agent:latest
+    container_name: chrome-mcp-agent
+    ports:
+      - "8765:8765"   # Chrome extension WebSocket
+    volumes:
+      - ./logs/chrome-mcp-agent:/app/logs
+
+  research-agent:
+    <<: *agent-defaults
+    build:
+      context: ./research-agent
+    image: zyb-research-agent:latest
+    container_name: research-agent
+    volumes:
+      - ./logs/research-agent:/app/logs
+
+  serper-search-agent:
+    <<: *agent-defaults
+    build:
+      context: ./serper-search-agent
+    image: zyb-serper-search-agent:latest
+    container_name: serper-search-agent
+    volumes:
+      - ./logs/serper-search-agent:/app/logs
+
+  # ── Communication agents ──────────────────────────────────────────────────
+
+  slack-connector-agent:
+    <<: *agent-defaults
+    build:
+      context: ./slack-connector-agent
+    image: zyb-slack-connector-agent:latest
+    container_name: slack-connector-agent
+    volumes:
+      - ./logs/slack-connector-agent:/app/logs
+
+  whatsapp-connector-agent:
+    <<: *agent-defaults
+    build:
+      context: ./whatsapp-connector-agent
+    image: zyb-whatsapp-connector-agent:latest
+    container_name: whatsapp-connector-agent
+    volumes:
+      - ./logs/whatsapp-connector-agent:/app/logs
+
+  telegram-agent:
+    <<: *agent-defaults
+    build:
+      context: ./telegram-agent
+    image: zyb-telegram-agent:latest
+    container_name: telegram-agent
+    ports:
+      - "8088:8088"   # Telegram webhook receiver (if not using port 8080)
+    volumes:
+      - ./logs/telegram-agent:/app/logs
+
+  gmail-agent:
+    <<: *agent-defaults
+    build:
+      context: ./gmail-agent
+    image: zyb-gmail-agent:latest
+    container_name: gmail-agent
+    volumes:
+      - ./logs/gmail-agent:/app/logs
+
+  # ── Data / document agents ────────────────────────────────────────────────
+
+  filesystem-agent:
+    <<: *agent-defaults
+    build:
+      context: ./filesystem-agent
+    image: zyb-filesystem-agent:latest
+    container_name: filesystem-agent
+    environment:
+      ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      FS_ALLOWED_PATHS: /data
+    volumes:
+      - ./logs/filesystem-agent:/app/logs
+      - agent_fs_workspace:/data
+
+  document-agent:
+    <<: *agent-defaults
+    build:
+      context: ./document-agent
+    image: zyb-document-agent:latest
+    container_name: document-agent
+    volumes:
+      - ./logs/document-agent:/app/logs
+
+  google-docs-agent:
+    <<: *agent-defaults
+    build:
+      context: ./google-docs-agent
+    image: zyb-google-docs-agent:latest
+    container_name: google-docs-agent
+    volumes:
+      - ./logs/google-docs-agent:/app/logs
+      # Mount OAuth credentials after running setup_oauth.py:
+      # - ./google-docs-agent/credentials.json:/app/credentials.json:ro
+      # - ./google-docs-agent/token.json:/app/token.json
+
+  # ── Code / skill agents ───────────────────────────────────────────────────
+
+  code-execution-agent:
+    <<: *agent-defaults
+    build:
+      context: ./code-execution-agent
+    image: zyb-code-execution-agent:latest
+    container_name: code-execution-agent
+    volumes:
+      - ./logs/code-execution-agent:/app/logs
+
+  skill-loader-agent:
+    <<: *agent-defaults
+    build:
+      context: ./skill-loader-agent
+    image: zyb-skill-loader-agent:latest
+    container_name: skill-loader-agent
+    volumes:
+      - ./logs/skill-loader-agent:/app/logs
+
+  skill-forge-agent:
+    <<: *agent-defaults
+    build:
+      context: ./skill-forge-agent
+    image: zyb-skill-forge-agent:latest
+    container_name: skill-forge-agent
+    volumes:
+      - ./logs/skill-forge-agent:/app/logs
+
+  skill-writer-agent:
+    <<: *agent-defaults
+    build:
+      context: ./skill-writer-agent
+    image: zyb-skill-writer-agent:latest
+    container_name: skill-writer-agent
+    volumes:
+      - ./logs/skill-writer-agent:/app/logs
+
+  # ── Specialised agents ────────────────────────────────────────────────────
+
+  summarize-agent:
+    <<: *agent-defaults
+    build:
+      context: ./summarize-agent
+    image: zyb-summarize-agent:latest
+    container_name: summarize-agent
+    volumes:
+      - ./logs/summarize-agent:/app/logs
+
+  trading-agent:
+    <<: *agent-defaults
+    build:
+      context: ./trading-agent
+    image: zyb-trading-agent:latest
+    container_name: trading-agent
+    volumes:
+      - ./logs/trading-agent:/app/logs
+
+  heygen-agent:
+    <<: *agent-defaults
+    build:
+      context: ./heygen-agent
+    image: zyb-heygen-agent:latest
+    container_name: heygen-agent
+    volumes:
+      - ./logs/heygen-agent:/app/logs
+
+  youtube-agent:
+    <<: *agent-defaults
+    build:
+      context: ./youtube-agent
+    image: zyb-youtube-agent:latest
+    container_name: youtube-agent
+    volumes:
+      - ./logs/youtube-agent:/app/logs
+
+  avatar-agent:
+    <<: *agent-defaults
+    build:
+      context: ./avatar-agent
+    image: zyb-avatar-agent:latest
+    container_name: avatar-agent
+    ports:
+      - "8010:8010"   # Avatar UI
+    volumes:
+      - ./logs/avatar-agent:/app/logs
+
+# ── Shared network ─────────────────────────────────────────────────────────
+networks:
+  agents:
+    driver: bridge
+
+# ── Named volumes ──────────────────────────────────────────────────────────
+volumes:
+  agent_orchestrator_data:
+  agent_fs_workspace:

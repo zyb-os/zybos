@@ -1,0 +1,352 @@
+# ============================================================
+# docker-compose.sidecar.yml — one container per agent
+#
+# Each agent runs in its own container and connects to the
+# agent-orchestrator over the shared "zyb-net" bridge network.
+#
+# Quick start:
+#   ./deploy-agents.sh up          # build all images and start
+#   ./deploy-agents.sh down        # stop and remove containers
+#   ./deploy-agents.sh logs        # stream all logs
+#   ./deploy-agents.sh logs <svc>  # stream a single service
+#   ./deploy-agents.sh ps          # show running containers
+#   ./deploy-agents.sh restart <svc>
+#   ./deploy-agents.sh rebuild <svc>
+#
+# Configuration:
+#   No secrets live here.  All API keys are set via the dashboard
+#   at http://localhost:8000 after first boot (Common Settings /
+#   per-agent Settings).  Telegram / WhatsApp tokens that must be
+#   injected at startup are the only exception — pass them as env
+#   vars or via a local .env.sidecar file (see README).
+# ============================================================
+
+x-agent-defaults: &agent-defaults
+  restart: unless-stopped
+  networks:
+    - zyb-net
+  # Most agents accept --orchestrator-url as a CLI flag; the few that read
+  # ORCHESTRATOR_URL as an env var instead get it from the environment block.
+  command: ["python", "main.py", "--orchestrator-url", "http://agent-orchestrator:8000"]
+  environment:
+    ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+    LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+  depends_on:
+    agent-orchestrator:
+      condition: service_healthy
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "20m"
+      max-file: "3"
+
+services:
+
+  # ── Orchestrator (hub) ───────────────────────────────────────────────────────
+  agent-orchestrator:
+    build:
+      context: agent-orchestrator
+      dockerfile: Dockerfile.standalone
+    image: zyb/agent-orchestrator:latest
+    container_name: zyb-agent-orchestrator
+    restart: unless-stopped
+    networks:
+      - zyb-net
+    ports:
+      - "${ORCHESTRATOR_PORT:-8000}:8000"
+    environment:
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      ORCHESTRATOR_SETTINGS_ENCRYPTION_KEY: "${ORCHESTRATOR_SETTINGS_ENCRYPTION_KEY:-}"
+    volumes:
+      - orchestrator-data:/app/data
+      - orchestrator-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ── Core planning / execution ─────────────────────────────────────────────────
+  task-planner-agent:
+    <<: *agent-defaults
+    build:
+      context: task-planner-agent
+      dockerfile: Dockerfile
+    image: zyb/task-planner-agent:latest
+    container_name: zyb-task-planner-agent
+    volumes:
+      - task-planner-data:/app/data
+
+  task-executor-agent:
+    <<: *agent-defaults
+    build:
+      context: task-executor-agent
+      dockerfile: Dockerfile
+    image: zyb/task-executor-agent:latest
+    container_name: zyb-task-executor-agent
+
+  task-scheduler-agent:
+    <<: *agent-defaults
+    build:
+      context: task-scheduler-agent
+      dockerfile: Dockerfile
+    image: zyb/task-scheduler-agent:latest
+    container_name: zyb-task-scheduler-agent
+
+  # ── Trigger routing ───────────────────────────────────────────────────────────
+  trigger-router:
+    <<: *agent-defaults
+    build:
+      context: trigger-router
+      dockerfile: Dockerfile
+    image: zyb/trigger-router:latest
+    container_name: zyb-trigger-router
+    volumes:
+      - trigger-router-data:/app
+
+  # ── Browser / web ─────────────────────────────────────────────────────────────
+  browser-agent:
+    <<: *agent-defaults
+    build:
+      context: browser-agent
+      dockerfile: Dockerfile
+    image: zyb/browser-agent:latest
+    container_name: zyb-browser-agent
+    shm_size: "256mb"
+    environment:
+      ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      PLAYWRIGHT_BROWSERS_PATH: "/root/.cache/ms-playwright"
+
+  chrome-mcp-agent:
+    <<: *agent-defaults
+    build:
+      context: chrome-mcp-agent
+      dockerfile: Dockerfile
+    image: zyb/chrome-mcp-agent:latest
+    container_name: zyb-chrome-mcp-agent
+    ports:
+      - "${CHROME_MCP_PORT:-8765}:8765"
+
+  serper-search-agent:
+    <<: *agent-defaults
+    build:
+      context: serper-search-agent
+      dockerfile: Dockerfile
+    image: zyb/serper-search-agent:latest
+    container_name: zyb-serper-search-agent
+
+  research-agent:
+    <<: *agent-defaults
+    build:
+      context: research-agent
+      dockerfile: Dockerfile
+    image: zyb/research-agent:latest
+    container_name: zyb-research-agent
+
+  # ── Messaging connectors ──────────────────────────────────────────────────────
+  slack-connector-agent:
+    <<: *agent-defaults
+    build:
+      context: slack-connector-agent
+      dockerfile: Dockerfile
+    image: zyb/slack-connector-agent:latest
+    container_name: zyb-slack-connector-agent
+
+  whatsapp-connector-agent:
+    <<: *agent-defaults
+    build:
+      context: whatsapp-connector-agent
+      dockerfile: Dockerfile
+    image: zyb/whatsapp-connector-agent:latest
+    container_name: zyb-whatsapp-connector-agent
+    ports:
+      - "${WHATSAPP_WEBHOOK_PORT:-8080}:8080"
+
+  telegram-agent:
+    <<: *agent-defaults
+    build:
+      context: telegram-agent
+      dockerfile: Dockerfile
+    image: zyb/telegram-agent:latest
+    container_name: zyb-telegram-agent
+    command: ["python", "main.py"]
+    ports:
+      - "${TELEGRAM_WEBHOOK_PORT:-8081}:8080"
+    environment:
+      ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TELEGRAM_WEBHOOK_URL: "${TELEGRAM_WEBHOOK_URL:-}"
+      TELEGRAM_WEBHOOK_SECRET: "${TELEGRAM_WEBHOOK_SECRET:-}"
+      TELEGRAM_ROUTING_TARGET: "${TELEGRAM_ROUTING_TARGET:-}"
+
+  # ── Mail / docs ───────────────────────────────────────────────────────────────
+  gmail-agent:
+    <<: *agent-defaults
+    build:
+      context: gmail-agent
+      dockerfile: Dockerfile
+    image: zyb/gmail-agent:latest
+    container_name: zyb-gmail-agent
+    volumes:
+      - gmail-oauth:/app/data
+
+  google-docs-agent:
+    <<: *agent-defaults
+    build:
+      context: google-docs-agent
+      dockerfile: Dockerfile
+    image: zyb/google-docs-agent:latest
+    container_name: zyb-google-docs-agent
+    volumes:
+      - google-docs-oauth:/app
+
+  document-agent:
+    <<: *agent-defaults
+    build:
+      context: document-agent
+      dockerfile: Dockerfile
+    image: zyb/document-agent:latest
+    container_name: zyb-document-agent
+
+  summarize-agent:
+    <<: *agent-defaults
+    build:
+      context: summarize-agent
+      dockerfile: Dockerfile
+    image: zyb/summarize-agent:latest
+    container_name: zyb-summarize-agent
+
+  # ── Filesystem / code ─────────────────────────────────────────────────────────
+  filesystem-agent:
+    <<: *agent-defaults
+    build:
+      context: filesystem-agent
+      dockerfile: Dockerfile
+    image: zyb/filesystem-agent:latest
+    container_name: zyb-filesystem-agent
+    volumes:
+      - agent-workspace:/agent-workspace
+
+  code-execution-agent:
+    <<: *agent-defaults
+    build:
+      context: code-execution-agent
+      dockerfile: Dockerfile
+    image: zyb/code-execution-agent:latest
+    container_name: zyb-code-execution-agent
+    volumes:
+      - agent-workspace:/agent-workspace
+
+  # ── Skills ───────────────────────────────────────────────────────────────────
+  skill-loader-agent:
+    <<: *agent-defaults
+    build:
+      context: skill-loader-agent
+      dockerfile: Dockerfile
+    image: zyb/skill-loader-agent:latest
+    container_name: zyb-skill-loader-agent
+    volumes:
+      - skill-loader-data:/app/data
+
+  skill-forge-agent:
+    <<: *agent-defaults
+    build:
+      context: skill-forge-agent
+      dockerfile: Dockerfile
+    image: zyb/skill-forge-agent:latest
+    container_name: zyb-skill-forge-agent
+    command: ["python", "main.py"]
+    environment:
+      ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    volumes:
+      - skill-forge-data:/app/forged_skills
+
+  skill-writer-agent:
+    <<: *agent-defaults
+    build:
+      context: skill-writer-agent
+      dockerfile: Dockerfile
+    image: zyb/skill-writer-agent:latest
+    container_name: zyb-skill-writer-agent
+
+  # ── Media / trading / avatar ──────────────────────────────────────────────────
+  avatar-agent:
+    <<: *agent-defaults
+    build:
+      context: avatar-agent
+      dockerfile: Dockerfile
+    image: zyb/avatar-agent:latest
+    container_name: zyb-avatar-agent
+    ports:
+      - "${AVATAR_PORT:-8010}:8010"
+
+  heygen-agent:
+    <<: *agent-defaults
+    build:
+      context: heygen-agent
+      dockerfile: Dockerfile
+    image: zyb/heygen-agent:latest
+    container_name: zyb-heygen-agent
+
+  trading-agent:
+    <<: *agent-defaults
+    build:
+      context: trading-agent
+      dockerfile: Dockerfile
+    image: zyb/trading-agent:latest
+    container_name: zyb-trading-agent
+
+  youtube-agent:
+    <<: *agent-defaults
+    build:
+      context: youtube-agent
+      dockerfile: Dockerfile
+    image: zyb/youtube-agent:latest
+    container_name: zyb-youtube-agent
+    command: ["python", "main.py"]
+    environment:
+      ORCHESTRATOR_URL: "http://agent-orchestrator:8000"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+  # ── Ops ───────────────────────────────────────────────────────────────────────
+  self-heal-agent:
+    <<: *agent-defaults
+    build:
+      context: self-heal-agent
+      dockerfile: Dockerfile
+    image: zyb/self-heal-agent:latest
+    container_name: zyb-self-heal-agent
+
+  workflow-validator-agent:
+    <<: *agent-defaults
+    build:
+      context: workflow-validator-agent
+      dockerfile: Dockerfile
+    image: zyb/workflow-validator-agent:latest
+    container_name: zyb-workflow-validator-agent
+
+# ── Network ───────────────────────────────────────────────────────────────────
+networks:
+  zyb-net:
+    driver: bridge
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  orchestrator-data:
+  orchestrator-logs:
+  task-planner-data:
+  trigger-router-data:
+  gmail-oauth:
+  google-docs-oauth:
+  skill-loader-data:
+  skill-forge-data:
+  agent-workspace:

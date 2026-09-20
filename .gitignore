@@ -1,0 +1,9 @@
+.DS_Store
+.env.sidecar
+logs/
+__pycache__/
+*.pyc
+.agent_id
+*.db
+*.db-shm
+*.db-wal
